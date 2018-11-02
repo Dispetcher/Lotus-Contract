@@ -1,0 +1,123 @@
+Dim db As NotesDatabase
+Dim doc, urlDoc, contDoc As NotesDocument
+
+Sub Click(Source As Button)
+	Dim ws As New NotesUIWorkspace
+	Dim s As New NotesSession
+	Dim uiDoc As NotesUIDocument
+	Dim notesItem As NotesItem
+	Dim items, item, itemsUrl, itemUrl As Variant
+	Dim body, tmp, tmp1,tmp2, link, numZak, linkCont As String
+	Dim tmpCur As Currency
+	Dim tmpSng As Single 
+	
+	Set db = s.CurrentDatabase
+	Set uiDoc = ws.CurrentDocument
+	Set doc = uiDoc.Document
+	
+	REM Получаем номер закупки
+	items = doc.ITEMS
+	Set item = items(1)
+	numZak = Strright(item.TEXT, "№")
+	
+	REM Формируем ссылку для поиска контракта
+	link = "http://zakupki.gov.ru/epz/order/notice/ea44/view/supplier-results.html?regNumber=" + numZak
+	
+	Set urlDoc = db.GetDocumentByURL(link)
+	
+	REM Получаем текст со страницы закупки о заключенных контрактах
+	itemsUrl = urlDoc.ITEMS
+	Set itemUrl = itemsUrl(Ubound(itemsUrl))
+	body = itemUrl.TEXT
+	
+	REM Для настройки заполнения 
+	REM Set notesItem = doc.ReplaceItemValue("Txt", body)
+	
+	REM Ссылка на контракт
+	tmp1 = Strrightback(body, "Сведения о контракте из реестра контрактов")
+	tmp1 = Strrightback(tmp1, "№")
+	tmp = Fulltrim(Strleft(tmp1, " " ))
+	
+	REM Проверка на наличие контракта
+	If tmp = "" Then Goto endh
+	
+	linkCont = "http://zakupki.gov.ru/epz/contract/contractCard/common-info.html?reestrNumber=" + Cstr(tmp)
+	Set contDoc = db.GetDocumentByURL(linkCont)
+	
+	REM Добавляем номер контракта
+	tmp2 = "№" + tmp
+	Set notesItem = doc.ReplaceItemValue("ReestrNumContract", tmp2)
+	
+	REM Добавляем ссылку на контракт
+	Set notesItem = doc.ReplaceItemValue("ContractLink", linkCont)	
+	
+	REM Получаем текст со страницы контракта
+	itemsUrl = contDoc.ITEMS
+	Set itemUrl = itemsUrl(Ubound(itemsUrl))
+	body = itemUrl.TEXT
+	
+	REM Цена заключенного контракта
+	tmp1 = Strrightback(body, "Цена контракта")
+	tmp = Strleft(tmp1, "Валюта")
+	tmp = Strleft(tmp, Chr(10) )
+	tmpCur = Ccur(tmp)
+	Set notesItem = doc.ReplaceItemValue("PriceContract", tmpCur)
+	
+	REM Фактическая стоимость закупки
+	Set item = items(5)
+	If item.text = "0" Or item.text = "" Then
+		Set notesItem = doc.ReplaceItemValue("FactStoimostPosleSnizheniya", tmpCur)
+	End If
+	
+	REM Дата заключения контракта
+	tmp1 = Strrightback(body, "Дата заключения контракта")
+	tmp = Fulltrim(Strleft(tmp1, "Номер"))
+	Set notesItem = doc.ReplaceItemValue("DataContract", tmp)
+	
+	REM Дата окончания исполнения
+	tmp1 = Strrightback(body, "Дата окончания исполнения контракта")
+	tmp = Fulltrim(Strleft(tmp1, "В том числе"))
+	Set notesItem = doc.ReplaceItemValue("DataEndContract", tmp)
+	
+	REM Номер контракта
+	tmp1 = Strrightback(body, "Номер контракта")
+	tmp = Fulltrim(Strleft(tmp1, "Способ указания"))
+	tmp = Fulltrim(Strleft(tmp, " " ))	
+	Set notesItem = doc.ReplaceItemValue("ContractNum", tmp)
+	
+	
+	REM ИНН подрядчика и его наименование
+	tmp1 = Strrightback(body, "ИНН:")
+	tmp = Fulltrim(Strleft(tmp1, "КПП"))
+	tmp = convertInn(tmp)
+	Set notesItem = doc.ReplaceItemValue("PobeditelINN", tmp)
+	
+	tmp2 = getOrgNameByInn(tmp)
+	Set notesItem = doc.ReplaceItemValue("Pobeditel", tmp2)
+	
+Endh:
+End Sub
+
+Function getOrgNameByInn (inn) As String
+	Dim view As NotesView
+	Dim entry As NotesViewEntry
+	Dim tmp, num, inn3 As String
+	Dim inn1 As Currency
+	
+	Set view = db.GetView("ViewINN")
+	Set entry = view.GetEntryByKey(inn)
+	
+	tmp = entry.ColumnValues(1)
+	getOrgNameByInn = tmp
+End Function
+
+Function convertInn(inn) As String
+	Dim innCur As Currency
+	Dim innStr As String
+	
+	REM Только двойной конвертацией форматов, получаем строку с ИНН
+	inn = Fulltrim(Cstr(Right(inn, 11)))
+	innCur = Ccur(inn)
+	innStr = Cstr(innCur)
+	convertInn = innStr
+End Function

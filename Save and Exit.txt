@@ -1,0 +1,61 @@
+Dim db As NotesDatabase
+Dim doc As NotesDocument
+
+Sub Click(Source As Button)
+	Dim ws As New NotesUIWorkspace
+	Dim s As New NotesSession
+	Dim uiDoc As NotesUIDocument
+	Dim items, item As NotesItem
+	Dim tmp, reestrNum As String
+	Dim isNew As Boolean
+	
+	Set db = s.CurrentDatabase
+	Set uiDoc = ws.CurrentDocument
+	Set doc = uiDoc.Document
+	
+	items = doc.ITEMS
+	
+	REM Проверка на новый документ
+	If doc.IsNewNote Then
+		
+		REM Ищем № закупки
+		Forall n In items
+			If n.Name = "ReestrNumIzveshcheniya" Then
+				
+			REM Если № отсутсвует то просим заполнить
+				If n.TEXT = "" Or n.TEXT = " " Then
+					Msgbox "Не заполнен № закупки", MB_OK, "Проверка № закупки"
+					Goto Endh
+				Else
+					reestrNum = n.TEXT
+				End If
+				
+				Goto CheckRNum
+			End If
+		End Forall
+	Else
+		Goto SaveDoc
+	End If
+	
+CheckRNum:	
+		REM Проверяем наличие вида
+	If db.GetView("AllContractsByRNum") Is Nothing Then
+		Msgbox "Вид проверки контракта не найден", MB_OK, "Поиск вида"
+		Goto Endh
+	Else
+		Set cView = db.GetView("AllContractsByRNum")
+		Set docs = cView.GetAllDocumentsByKey(reestrNum)
+	End If	
+	
+		REM Проверяем на уникальность закупку
+	If docs.Count > 0 Then
+		Msgbox "Такая закупка уже существует", MB_OK, "Проверка закупки"
+		Goto Endh
+	End If
+	
+SaveDoc:		
+	Call doc.Save(True, True, True)
+	Call uidoc.Close
+	
+Endh:	
+End Sub

@@ -17,8 +17,16 @@ Sub Click(Source As Button)
 	
 	REM Получаем номер закупки
 	items = doc.ITEMS
-	Set item = items(1)
-	numZak = Strright(item.TEXT, "№")
+	REM Ищем № закупки
+	Forall n In items
+		If n.Name = "ReestrNumIzveshcheniya" Then
+			numZak = Strright(n.TEXT, "№")
+			Goto GetDocByUrl
+		End If
+	End Forall
+	
+GetDocByUrl:
+	If numZak="" Then Goto Endh
 	
 	REM Формируем ссылку для поиска контракта
 	link = "http://zakupki.gov.ru/epz/order/notice/ea44/view/supplier-results.html?regNumber=" + numZak

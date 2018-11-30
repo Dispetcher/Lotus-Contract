@@ -47,7 +47,11 @@ GetDocByUrl:
 	tmp = Fulltrim(Strleft(tmp1, " " ))
 	
 	REM Проверка на наличие контракта
-	If tmp = "" Then Goto endh
+	If tmp = "" Then
+		Msgbox "Контракт отсутствует на госзакупках"
+		Goto Endh
+	End If
+	
 	
 	linkCont = "http://zakupki.gov.ru/epz/contract/contractCard/common-info.html?reestrNumber=" + Cstr(tmp)
 	Set contDoc = db.GetDocumentByURL(linkCont)
@@ -85,6 +89,7 @@ GetDocByUrl:
 	REM Дата окончания исполнения
 	tmp1 = Strrightback(body, "Дата окончания исполнения контракта")
 	tmp = Fulltrim(Strleft(tmp1, "В том числе"))
+	tmp = Left(tmp, 10)
 	Set notesItem = doc.ReplaceItemValue("DataEndContract", tmp)
 	
 	REM Номер контракта
@@ -103,6 +108,15 @@ GetDocByUrl:
 	tmp2 = getOrgNameByInn(tmp)
 	Set notesItem = doc.ReplaceItemValue("Pobeditel", tmp2)
 	
+	Forall n In items
+		If n.Name = "Uchastniki" Then
+			tmp = n.TEXT
+			If tmp = "" Or tmp = " " Then
+				Set notesItem = doc.ReplaceItemValue("Uchastniki", tmp2)
+			End If
+		End If
+	End Forall
+	
 Endh:
 End Sub
 
@@ -113,9 +127,14 @@ Function getOrgNameByInn (inn) As String
 	Dim inn1 As Currency
 	
 	Set view = db.GetView("ViewINN")
-	Set entry = view.GetEntryByKey(inn)
+	If view.GetEntryByKey(inn) Is Nothing Then
+		tmp = ""
+		Print "Организация-победитель не найдена в базе"
+	Else
+		Set entry = view.GetEntryByKey(inn)
+		tmp = entry.ColumnValues(1)
+	End If
 	
-	tmp = entry.ColumnValues(1)
 	getOrgNameByInn = tmp
 End Function
 

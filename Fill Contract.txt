@@ -7,7 +7,7 @@ Sub Click(Source As Button)
 	Dim uiDoc As NotesUIDocument
 	Dim notesItem As NotesItem
 	Dim items, item, itemsUrl, itemUrl As Variant
-	Dim body, tmp, tmp1,tmp2, link, numZak, linkCont As String
+	Dim body, tmp, tmp1,tmp2, link, numZak, priceCont, linkCont As String
 	Dim tmpCur As Currency
 	Dim tmpSng As Single 
 	
@@ -27,6 +27,18 @@ Sub Click(Source As Button)
 	
 GetDocByUrl:
 	If numZak="" Then Goto Endh
+	
+	REM Ищем Цену контракта, если контракт уже занесен (для обновления данных контракта)
+	Forall n In items
+		If n.Name = "PriceContract" Then
+			priceCont = Cstr(n.TEXT)
+			Goto GetPriceCont
+		End If
+	End Forall
+	
+GetPriceCont:
+	REM Добавляем текущую цену контракта в примечания
+	Set notesItem = doc.ReplaceItemValue("Prim", priceCont)
 	
 	REM Формируем ссылку для поиска контракта
 	link = "http://zakupki.gov.ru/epz/order/notice/ea44/view/supplier-results.html?regNumber=" + numZak
@@ -76,11 +88,16 @@ GetDocByUrl:
 	Set notesItem = doc.ReplaceItemValue("PriceContract", tmpCur)
 	
 	REM Фактическая стоимость закупки
-	Set item = items(5)
-	If item.text = "0" Or item.text = "" Then
-		Set notesItem = doc.ReplaceItemValue("FactStoimostPosleSnizheniya", tmpCur)
-	End If
+	Forall n In items
+		If n.Name = "FactStoimostPosleSnizheniya" Then
+			If n.TEXT = "0" Or n.TEXT = "" Then
+				Set notesItem = doc.ReplaceItemValue("FactStoimostPosleSnizheniya", tmpCur)
+			End If
+			Goto DateContr
+		End If
+	End Forall
 	
+DateContr:	
 	REM Дата заключения контракта
 	tmp1 = Strrightback(body, "Дата заключения контракта")
 	tmp = Fulltrim(Strleft(tmp1, "Номер"))
@@ -119,32 +136,3 @@ GetDocByUrl:
 	
 Endh:
 End Sub
-
-Function getOrgNameByInn (inn) As String
-	Dim view As NotesView
-	Dim entry As NotesViewEntry
-	Dim tmp, num, inn3 As String
-	Dim inn1 As Currency
-	
-	Set view = db.GetView("ViewINN")
-	If view.GetEntryByKey(inn) Is Nothing Then
-		tmp = ""
-		Print "Организация-победитель не найдена в базе"
-	Else
-		Set entry = view.GetEntryByKey(inn)
-		tmp = entry.ColumnValues(1)
-	End If
-	
-	getOrgNameByInn = tmp
-End Function
-
-Function convertInn(inn) As String
-	Dim innCur As Currency
-	Dim innStr As String
-	
-	REM Только двойной конвертацией форматов, получаем строку с ИНН
-	inn = Fulltrim(Cstr(Right(inn, 11)))
-	innCur = Ccur(inn)
-	innStr = Cstr(innCur)
-	convertInn = innStr
-End Function
